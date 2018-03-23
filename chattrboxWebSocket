@@ -1,0 +1,57 @@
+#! /usr/bin/env node
+let WS = require("ws");
+
+let ws = new WS.Server({port: 3001});
+
+let clientMap = new Map();
+
+let id = require("uuid/v4");
+
+let slashRegex = /^\/([a-z]{4}) (.*)/;
+
+let moment = require("moment");
+
+ws.on("connection", (client, request) => {
+    clientMap.set(client,{nameSet:false});
+    client.send("What is your name? :");
+    client.send("type /name to set your name");
+    client.on("message", text => {
+        let message = {"name":clientMap.get(client)["name"],
+            "timestamp":moment().format("YYYY:MMM:DD:hh:mm:ss"),
+            "message":text}
+        let command = text.match(slashRegex);;
+        if (command){
+            if (command[1].toLowerCase() === "name"){
+                let joined = clientMap.get(client)["nameSet"];
+                let oldName = clientMap.get(client)["name"];
+                let newInfo = clientMap.get(client);
+                newInfo["name"] = command[2];
+                newInfo["nameSet"] = true;
+                clientMap.set(client, newInfo);
+                if (!joined) {
+                    broadcast(`${clientMap.get(client)["name"]} has Joined!`);
+                }
+                else{
+                    broadcast(`${oldName} is now ${newInfo["name"]}.`);
+                }
+            }
+        }
+        else{
+            broadcast(text,client);
+        }
+    });
+});
+
+let broadcast = (data, exlusion) => {
+    let sendingClient = clientMap.get(exlusion);
+    if (!sendingClient){
+        sendingClient = {"name":"Server"}
+    }
+    ws.clients.forEach( client => {
+        let clientInfo = clientMap.get(client);
+
+        if (client !== exlusion && clientInfo.nameSet){
+            client.send(`${sendingClient["name"]}: ${data}`);
+        }
+    });
+};
