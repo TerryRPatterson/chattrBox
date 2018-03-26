@@ -1,210 +1,209 @@
 #! /usr/bin/env node
-module.exports = () =>{
-    let WS = require("ws");
-    let ws;
-    let clientMap = new Map();
-    let id = require("uuid/v4");
-    let slashRegex = /^\/([a-z]+?) (.*)/;
-    let loginRegex = /^(.+?) (.+?)$/;
-    let moment = require("moment");
-    let log = require("./logging.js");
-    let getTime = () =>{
-        return moment().format("YYYY:MMM:DD:hh:mm:ss");
-    };
-    const http = require("http");
-    const userFacingDirectory = "static";
-    const fs = require("fs");
-    const landingPage = "static/index.html";
-    const {promisify} = require("util");
-    const readdir = promisify(fs.readdir);
-    const stat = promisify(fs.stat);
 
-    let messageLog = [];
-    let userDataBase = {"Terry":{
-        nameSet:true,
-        name:"Terry",
-        password:"Donna",
-        picture:
-        "https://i.pinimg.com/736x/ae/12/19/"+
-        "ae1219d0438529902bf38e73873ef5ee--the-elder-scrolls-sheogorath.jpg"
+let WS = require("ws");
+let ws;
+let clientMap = new Map();
+let id = require("uuid/v4");
+let slashRegex = /^\/([a-z]+?) (.*)/;
+let loginRegex = /^(.+?) (.+?)$/;
+let moment = require("moment");
+let log = require("./logging.js");
+let getTime = () =>{
+    return moment().format("YYYY:MMM:DD:hh:mm:ss");
+};
+const http = require("http");
+const userFacingDirectory = "static";
+const fs = require("fs");
+const landingPage = "static/index.html";
+const {promisify} = require("util");
+const readdir = promisify(fs.readdir);
+const stat = promisify(fs.stat);
+
+let messageLog = [];
+let userDataBase = {"Terry":{
+    nameSet:true,
+    name:"Terry",
+    password:"Donna",
+    picture:
+    "https://i.pinimg.com/736x/ae/12/19/"+
+    "ae1219d0438529902bf38e73873ef5ee--the-elder-scrolls-sheogorath.jpg"
+}
+};
+
+let broadcast = (message, exlusion) => {
+    log(message);
+    if (!exlusion){
+        messageLog.push(message);
     }
-    };
-
-    let broadcast = (message, exlusion) => {
-        log(message);
-        if (!exlusion){
-            messageLog.push(message);
+    ws.clients.forEach( client => {
+        let clientInfo = clientMap.get(client);
+        if (client !== exlusion && clientInfo.nameSet){
+            client.send(JSON.stringify(message));
         }
-        ws.clients.forEach( client => {
-            let clientInfo = clientMap.get(client);
-            if (client !== exlusion && clientInfo.nameSet){
-                client.send(JSON.stringify(message));
-            }
-        });
-    };
-    let serverMessage = (message, target) => {
-        let serverMessage = {name:"server",timestamp:getTime(),text:message};
-        if (target){
-            target.send(JSON.stringify(serverMessage));
-        }
-        if (!target){
-            messageLog.push(message);
-            ws.clients.forEach( client => {
-                if (clientMap.get(client).nameSet){
-                    client.send(JSON.stringify(serverMessage));
-                }
-            });
-        }
-    };
-    let setting = (value, key, target) => {
-        target.send(JSON.stringify({type:"setting",
-            key:key, value:value}));
-    };
-
-
-
-    let populateAuthedFiles = (authedFiles = [],
-        startingPath=`${userFacingDirectory}/`) => {
-        return new Promise((resolve) => {
-
-            readdir(startingPath).then((readFiles) => {
-                readFiles.forEach((entry) =>{
-                    stat(startingPath + entry).then((stats) => {
-                        if (stats.isFile()){
-                            authedFiles.push(startingPath + entry);
-                        }
-
-                        else {
-                            populateAuthedFiles(authedFiles, startingPath + entry + "/")
-                                .then((moreAuthedFiles) =>{
-                                    authedFiles = authedFiles.concat(moreAuthedFiles);
-                                });
-                        }
-                    });
-                });
-                resolve(authedFiles);
-            });
-        });
-    };
-
-    let server = http.createServer((request, response) => {
-
-        if (request.url === "/" || request.url === "/?"){
-            fs.readFile(landingPage, "utf8", (err, data) => {
-                response.end(data);
-            });
-        }
-
-        else if (server.authedFiles.includes(
-            `${userFacingDirectory}${request.url}`)){
-            let dotoffset = request.url.lastIndexOf(".");
-            let mimetype = dotoffset == -1
-                ? "text/plain"
-                : {
-                    ".html" : "text/html",
-                    ".ico" : "image/x-icon",
-                    ".jpg" : "image/jpeg",
-                    ".png" : "image/png",
-                    ".gif" : "image/gif",
-                    ".css" : "text/css",
-                    ".js" : "text/javascript"
-                }[ request.url.substr(dotoffset) ];
-            response.setHeader("Content-type" , mimetype);
-            fs.readFile(`${userFacingDirectory}${request.url}`,"utf8",(err,data) => {
-                response.end(data);
-            });
-        }
-
-        else {
-            response.statusCode = 404;
-            response.end(`Woops ${request.url} doesn't exits.`);
-        }
-    });
-
-
-
-    populateAuthedFiles().then((authedFiles) => {
-        server.authedFiles = authedFiles;
-        server.listen(process.env.PORT || 3000);
-        ws = new WS.Server({server:server});
-        ws.on("connection", (client, request) => {
-            clientMap.set(client,{nameSet:false, name:"Not yet logged in"});
-            serverMessage("Welcome to the server.",client);
-            serverMessage("Please login by using /login {user name} {password}",client);
-            client.on("message", text => {
-                let message = {"name":clientMap.get(client)["name"],
-                    "timestamp":getTime(),
-                    "text":text,
-                    type:"message"};
-                let command = text.match(slashRegex);
-                if (command){
-                    message["type"] = "command";
-                    if (command[1].toLowerCase() === "login"){
-                        let login = command[2].match(loginRegex);
-                        if (login){
-                            if (userDataBase[login[1]]){
-                                if (userDataBase[login[1]]["password"] === login[2]){
-                                    clientMap.set(client,userDataBase[login[1]]);
-                                    setting(clientMap.get(client)["name"],"name",
-                                        client);
-                                    setting(clientMap.get(client)["picture"],"picture",
-                                        client);
-                                    serverMessage("Login Successful",client);
-                                    serverMessage(
-                                        `${clientMap.get(client)["name"]} has Joined!`);
-                                } else {
-                                    serverMessage("Incorrect password!\n"+
-                                        "Please try again", client);
-                                }
-                            }else{
-                                serverMessage(`${login[1]} does not exit please use `+
-                                "/new to create that account",client);
-                            }
-                        }else {
-                            serverMessage("Syntax error /login {username} {password}",
-                                client)
-                        }
-                    }
-                    else if (command[1].toLowerCase() === "new"){
-                        let login = command[2].match(loginRegex);
-                        if (login){
-                            if (!userDataBase[login[1]]){
-                                let newUser = {name:login[1],
-                                    password:login[2],
-                                    nameSet:true};
-                                userDataBase[login[1]] = newUser;
-                                setting(newUser["name"],"name",client);
-                                clientMap.set(client, newUser);
-                                serverMessage(`${newUser["name"]} has been created`,
-                                    client);
-                                serverMessage(
-                                    `${clientMap.get(client)["name"]} has Joined!`);
-                            }
-                            else {
-                                serverMessage(`User ${login[1]} already exists please use`+
-                                "/login {username} {password} to log in",client);
-                            }
-                        }else{
-                            serverMessage("Invaild syntax /new {username} {password}",
-                                client);
-                        }
-                    }else if (command[1].toLowerCase() == "clear"){
-                        userDataBase = {"Terry":{
-                            nameSet:true,
-                            name:"Terry",
-                            password:"Donna",
-                            picture:
-                            "https://i.pinimg.com/736x/ae/12/19/"+
-                            "ae1219d0438529902bf38e73873ef5ee--the-elder-scrolls-sheogorath.jpg"
-                        }
-                        }
-                    }else if (clientMap.get(client)["nameSet"]){
-                        broadcast(message,client);
-                    }
-                }
-            });
-        });
-    }).catch((error) => {
-        throw error;
     });
 };
+let serverMessage = (message, target) => {
+    let serverMessage = {name:"server",timestamp:getTime(),text:message};
+    if (target){
+        target.send(JSON.stringify(serverMessage));
+    }
+    if (!target){
+        messageLog.push(message);
+        ws.clients.forEach( client => {
+            if (clientMap.get(client).nameSet){
+                client.send(JSON.stringify(serverMessage));
+            }
+        });
+    }
+};
+let setting = (value, key, target) => {
+    target.send(JSON.stringify({type:"setting",
+        key:key, value:value}));
+};
+
+
+
+let populateAuthedFiles = (authedFiles = [],
+    startingPath=`${userFacingDirectory}/`) => {
+    return new Promise((resolve) => {
+
+        readdir(startingPath).then((readFiles) => {
+            readFiles.forEach((entry) =>{
+                stat(startingPath + entry).then((stats) => {
+                    if (stats.isFile()){
+                        authedFiles.push(startingPath + entry);
+                    }
+
+                    else {
+                        populateAuthedFiles(authedFiles, startingPath + entry + "/")
+                            .then((moreAuthedFiles) =>{
+                                authedFiles = authedFiles.concat(moreAuthedFiles);
+                            });
+                    }
+                });
+            });
+            resolve(authedFiles);
+        });
+    });
+};
+
+let server = http.createServer((request, response) => {
+
+    if (request.url === "/" || request.url === "/?"){
+        fs.readFile(landingPage, "utf8", (err, data) => {
+            response.end(data);
+        });
+    }
+
+    else if (server.authedFiles.includes(
+        `${userFacingDirectory}${request.url}`)){
+        let dotoffset = request.url.lastIndexOf(".");
+        let mimetype = dotoffset == -1
+            ? "text/plain"
+            : {
+                ".html" : "text/html",
+                ".ico" : "image/x-icon",
+                ".jpg" : "image/jpeg",
+                ".png" : "image/png",
+                ".gif" : "image/gif",
+                ".css" : "text/css",
+                ".js" : "text/javascript"
+            }[ request.url.substr(dotoffset) ];
+        response.setHeader("Content-type" , mimetype);
+        fs.readFile(`${userFacingDirectory}${request.url}`,"utf8",(err,data) => {
+            response.end(data);
+        });
+    }
+
+    else {
+        response.statusCode = 404;
+        response.end(`Woops ${request.url} doesn't exits.`);
+    }
+});
+
+
+
+populateAuthedFiles().then((authedFiles) => {
+    server.authedFiles = authedFiles;
+    server.listen(process.env.PORT || 3000);
+    ws = new WS.Server({server:server});
+    ws.on("connection", (client, request) => {
+        clientMap.set(client,{nameSet:false, name:"Not yet logged in"});
+        serverMessage("Welcome to the server.",client);
+        serverMessage("Please login by using /login {user name} {password}",client);
+        client.on("message", text => {
+            let message = {"name":clientMap.get(client)["name"],
+                "timestamp":getTime(),
+                "text":text,
+                type:"message"};
+            let command = text.match(slashRegex);
+            if (command){
+                message["type"] = "command";
+                if (command[1].toLowerCase() === "login"){
+                    let login = command[2].match(loginRegex);
+                    if (login){
+                        if (userDataBase[login[1]]){
+                            if (userDataBase[login[1]]["password"] === login[2]){
+                                clientMap.set(client,userDataBase[login[1]]);
+                                setting(clientMap.get(client)["name"],"name",
+                                    client);
+                                setting(clientMap.get(client)["picture"],"picture",
+                                    client);
+                                serverMessage("Login Successful",client);
+                                serverMessage(
+                                    `${clientMap.get(client)["name"]} has Joined!`);
+                            } else {
+                                serverMessage("Incorrect password!\n"+
+                                    "Please try again", client);
+                            }
+                        }else{
+                            serverMessage(`${login[1]} does not exit please use `+
+                            "/new to create that account",client);
+                        }
+                    }else {
+                        serverMessage("Syntax error /login {username} {password}",
+                            client)
+                    }
+                }
+                else if (command[1].toLowerCase() === "new"){
+                    let login = command[2].match(loginRegex);
+                    if (login){
+                        if (!userDataBase[login[1]]){
+                            let newUser = {name:login[1],
+                                password:login[2],
+                                nameSet:true};
+                            userDataBase[login[1]] = newUser;
+                            setting(newUser["name"],"name",client);
+                            clientMap.set(client, newUser);
+                            serverMessage(`${newUser["name"]} has been created`,
+                                client);
+                            serverMessage(
+                                `${clientMap.get(client)["name"]} has Joined!`);
+                        }
+                        else {
+                            serverMessage(`User ${login[1]} already exists please use`+
+                            "/login {username} {password} to log in",client);
+                        }
+                    }else{
+                        serverMessage("Invaild syntax /new {username} {password}",
+                            client);
+                    }
+                }else if (command[1].toLowerCase() == "clear"){
+                    userDataBase = {"Terry":{
+                        nameSet:true,
+                        name:"Terry",
+                        password:"Donna",
+                        picture:
+                        "https://i.pinimg.com/736x/ae/12/19/"+
+                        "ae1219d0438529902bf38e73873ef5ee--the-elder-scrolls-sheogorath.jpg"
+                    }
+                    };
+                }
+            }else if (clientMap.get(client)["nameSet"]){
+                broadcast(message,client);
+            }
+        });
+    });
+}).catch((error) => {
+    throw error;
+});
