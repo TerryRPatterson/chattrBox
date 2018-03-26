@@ -19,6 +19,8 @@ const {promisify} = require("util");
 const readdir = promisify(fs.readdir);
 const stat = promisify(fs.stat);
 
+
+
 let messageLog = [];
 let userDataBase = {"Terry":{
     nameSet:true,
@@ -26,7 +28,8 @@ let userDataBase = {"Terry":{
     password:"Donna",
     picture:
     "https://i.pinimg.com/736x/ae/12/19/"+
-    "ae1219d0438529902bf38e73873ef5ee--the-elder-scrolls-sheogorath.jpg"
+    "ae1219d0438529902bf38e73873ef5ee--the-elder-scrolls-sheogorath.jpg",
+    admin:true
 }
 };
 
@@ -61,7 +64,70 @@ let setting = (value, key, target) => {
         key:key, value:value}));
 };
 
+let login = (client, command) => {
+    let login = command[2].match(loginRegex);
+    if (login){
+        if (userDataBase[login[1]]){
+            if (userDataBase[login[1]]["password"] === login[2]){
+                clientMap.set(client,userDataBase[login[1]]);
+                setting(clientMap.get(client)["name"],"name",
+                    client);
+                setting(clientMap.get(client)["picture"],"picture",
+                    client);
+                serverMessage("Login Successful",client);
+                serverMessage(
+                    `${clientMap.get(client)["name"]} has Joined!`);
+            } else {
+                serverMessage("Incorrect password!\n"+
+                    "Please try again", client);
+            }
+        }else{
+            serverMessage(`${login[1]} does not exit please use `+
+            "/new to create that account",client);
+        }
+    }else {
+        serverMessage("Syntax error /login {username} {password}",
+            client);
+    }
+};
 
+let newUser = (client, command) => {
+    let login = command[2].match(loginRegex);
+    if (login){
+        if (!userDataBase[login[1]]){
+            let newUser = {name:login[1],
+                password:login[2],
+                nameSet:true};
+            userDataBase[login[1]] = newUser;
+            setting(newUser["name"],"name",client);
+            clientMap.set(client, newUser);
+            serverMessage(`${newUser["name"]} has been created`,
+                client);
+            serverMessage(
+                `${clientMap.get(client)["name"]} has Joined!`);
+        }
+        else {
+            serverMessage(`User ${login[1]} already exists please use`+
+                "/login {username} {password} to log in",client);
+        }
+    }else{
+        serverMessage("Invaild syntax /new {username} {password}",
+            client);
+    }
+};
+
+let picture = (client, command) => {
+    let info = clientMap.get(client);
+    info["picture"] = command[2];
+    clientMap.set(client, info);
+    setting(command[2], "picture", client);
+};
+
+const commandSelector = {
+    login:login,
+    new:newUser,
+    pic:picture
+};
 
 let populateAuthedFiles = (authedFiles = [],
     startingPath=`${userFacingDirectory}/`) => {
@@ -135,70 +201,15 @@ populateAuthedFiles().then((authedFiles) => {
             let message = {"name":clientMap.get(client)["name"],
                 "timestamp":getTime(),
                 "text":text,
-                type:"message"};
+                type:"message",
+                "picture":clientMap.get(client)["picture"]
+            };
             let command = text.match(slashRegex);
             if (command){
                 message["type"] = "command";
-                if (command[1].toLowerCase() === "login"){
-                    let login = command[2].match(loginRegex);
-                    if (login){
-                        if (userDataBase[login[1]]){
-                            if (userDataBase[login[1]]["password"] === login[2]){
-                                clientMap.set(client,userDataBase[login[1]]);
-                                setting(clientMap.get(client)["name"],"name",
-                                    client);
-                                setting(clientMap.get(client)["picture"],"picture",
-                                    client);
-                                serverMessage("Login Successful",client);
-                                serverMessage(
-                                    `${clientMap.get(client)["name"]} has Joined!`);
-                            } else {
-                                serverMessage("Incorrect password!\n"+
-                                    "Please try again", client);
-                            }
-                        }else{
-                            serverMessage(`${login[1]} does not exit please use `+
-                            "/new to create that account",client);
-                        }
-                    }else {
-                        serverMessage("Syntax error /login {username} {password}",
-                            client)
-                    }
-                }
-                else if (command[1].toLowerCase() === "new"){
-                    let login = command[2].match(loginRegex);
-                    if (login){
-                        if (!userDataBase[login[1]]){
-                            let newUser = {name:login[1],
-                                password:login[2],
-                                nameSet:true};
-                            userDataBase[login[1]] = newUser;
-                            setting(newUser["name"],"name",client);
-                            clientMap.set(client, newUser);
-                            serverMessage(`${newUser["name"]} has been created`,
-                                client);
-                            serverMessage(
-                                `${clientMap.get(client)["name"]} has Joined!`);
-                        }
-                        else {
-                            serverMessage(`User ${login[1]} already exists please use`+
-                            "/login {username} {password} to log in",client);
-                        }
-                    }else{
-                        serverMessage("Invaild syntax /new {username} {password}",
-                            client);
-                    }
-                }else if (command[1].toLowerCase() == "clear"){
-                    userDataBase = {"Terry":{
-                        nameSet:true,
-                        name:"Terry",
-                        password:"Donna",
-                        picture:
-                        "https://i.pinimg.com/736x/ae/12/19/"+
-                        "ae1219d0438529902bf38e73873ef5ee--the-elder-scrolls-sheogorath.jpg"
-                    }
-                    };
-                }
+                commandSelector[command[1]](client,command);
+
+
             }else if (clientMap.get(client)["nameSet"]){
                 broadcast(message,client);
             }
