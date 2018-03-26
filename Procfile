@@ -1,1 +1,1 @@
-web: node chatterboxStaticServer
+web: node main.js
