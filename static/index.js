@@ -1,7 +1,7 @@
-console.log("Make me do things!");
+/*global $*/
 
-var host = location.origin.replace(/^http/, "ws")
-var ws = new WebSocket(host);
+let host = location.origin.replace(/^http/, "ws");
+let ws = new WebSocket(host);
 
 let $messageContainer = $(".chat-message-list");
 
@@ -11,14 +11,14 @@ let $textField = $(".message-input");
 
 let settings = {
     name:"Me"
-}
+};
 
 
 let drawMessage = ({
     "name": u = "server",
     "timestamp": t,
     "text": m,
-    "picture":pic = "https://avatars3.githubusercontent.com/u/794113?s=64&v=4"
+    "picture":pic ="https://avatars3.githubusercontent.com/u/794113?s=64&v=4"
 }) => {
     console.log(pic);
     let $messageRow = $("<li>", {
