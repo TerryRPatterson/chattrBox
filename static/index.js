@@ -60,6 +60,7 @@ $chatForm.on("submit", (event) => {
             picture:settings["picture"]}));
     }
     $textField.val("");
+    document.querySelector(".chat-message-list").lastChild.scrollIntoView();
 });
 
 ws.onmessage = (event) => {
@@ -71,5 +72,6 @@ ws.onmessage = (event) => {
     else{
         let row = drawMessage(data);
         $messageContainer.append(row);
+        document.querySelector(".chat-message-list").lastChild.scrollIntoView();
     }
 };
