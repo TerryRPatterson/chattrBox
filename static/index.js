@@ -3,7 +3,7 @@ console.log("Make me do things!");
 var hostname = location.hostname;
 var port = 80;
 var url = 'ws://'+hostname+':'+port+'/';
-let ws =  new WebSocket(`ws://${location.hostname}:process.env.PORTWEBSOCKET`);
+let ws =  new WebSocket(`ws://${location.hostname}:${process.env.PORTWEBSOCKET}`);
 
 let $messageContainer = $(".chat-message-list");
 
