@@ -1,7 +1,7 @@
 #! /usr/bin/env node
 module.exports = () => {
     let WS = require("ws");
-    let ws = new WS.Server({port: 3001});
+    let ws = new WS.Server({port: process.env.PORTWEBSOCKET || 3001});
     let clientMap = new Map();
     let id = require("uuid/v4");
     let slashRegex = /^\/([a-z]+?) (.*)/;
