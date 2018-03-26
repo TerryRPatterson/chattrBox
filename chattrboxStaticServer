@@ -72,7 +72,7 @@ module.exports = () =>{
 
     populateAuthedFiles().then((authedFiles) => {
         server.authedFiles = authedFiles;
-        server.listen(3000);
+        server.listen(process.env.PORT || 3000);
     }).catch((error) => {
         throw error;
     });
