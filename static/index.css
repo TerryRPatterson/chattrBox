@@ -34,6 +34,8 @@ form { margin-bottom: 1em; }
         padding-right: 1em;
         /* flex: auto; */
         border-radius: 15px;
+        max-width: 90px;
+        max-height: 90px;
       }
       .message-row p {
         /* flex: auto; */

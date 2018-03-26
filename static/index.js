@@ -1,6 +1,6 @@
 console.log("Make me do things!");
 
-let ws =  new WebSocket("ws://192.168.1.91:3001");
+let ws =  new WebSocket("ws://localhost:3001");
 
 let $messageContainer = $(".chat-message-list");
 
@@ -17,8 +17,9 @@ let drawMessage = ({
     "name": u = "server",
     "timestamp": t,
     "text": m,
-    "pictue":pic="https://avatars3.githubusercontent.com/u/794113?s=64&v=4"
+    "picture":pic = "https://avatars3.githubusercontent.com/u/794113?s=64&v=4"
 }) => {
+    console.log(pic);
     let $messageRow = $("<li>", {
         "class": "message-row"
     });
@@ -52,8 +53,11 @@ let drawMessage = ({
 $chatForm.on("submit", (event) => {
     event.preventDefault();
     ws.send($textField.val());
-    $messageContainer.append(drawMessage({name:settings["name"],
-        text:$textField.val(),timestamp:new Date().toString()}));
+    if (!$textField.val().startsWith("/login")){
+        $messageContainer.append(drawMessage({name:settings["name"],
+            text:$textField.val(),timestamp:new Date().toString(),
+            picture:settings["picture"]}));
+    }
     $textField.val("");
 });
 
