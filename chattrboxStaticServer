@@ -170,7 +170,7 @@ module.exports = () =>{
                         if (login){
                             if (!userDataBase[login[1]]){
                                 let newUser = {name:login[1],
-                                    pasword:login[2],
+                                    password:login[2],
                                     nameSet:true};
                                 userDataBase[login[1]] = newUser;
                                 setting(newUser["name"],"name",client);
@@ -188,7 +188,16 @@ module.exports = () =>{
                             serverMessage("Invaild syntax /new {username} {password}",
                                 client);
                         }
-
+                    }else if (command[1].toLowerCase() == "clear"){
+                        userDataBase = {"Terry":{
+                            nameSet:true,
+                            name:"Terry",
+                            password:"Donna",
+                            picture:
+                            "https://i.pinimg.com/736x/ae/12/19/"+
+                            "ae1219d0438529902bf38e73873ef5ee--the-elder-scrolls-sheogorath.jpg"
+                        }
+                        }
                     }else if (clientMap.get(client)["nameSet"]){
                         broadcast(message,client);
                     }
