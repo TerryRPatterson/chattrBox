@@ -1,26 +1,28 @@
 #! /usr/bin/env node
 let WS = require("ws");
-
 let ws = new WS.Server({port: 3001});
-
 let clientMap = new Map();
-
 let id = require("uuid/v4");
-
 let slashRegex = /^\/([a-z]{4}) (.*)/;
-
 let moment = require("moment");
+let log = require("./logging.js");
+let getTime = () =>{
+    return moment().format("YYYY:MMM:DD:hh:mm:ss");
+}
+let messageLog = [];
 
 ws.on("connection", (client, request) => {
-    clientMap.set(client,{nameSet:false});
-    client.send("What is your name? :");
-    client.send("type /name to set your name");
+    clientMap.set(client,{nameSet:false, name:"Not yet logged in"});
+    serverMessage("What is your name?",client);
+    serverMessage("type /name to set your name",client);
     client.on("message", text => {
         let message = {"name":clientMap.get(client)["name"],
-            "timestamp":moment().format("YYYY:MMM:DD:hh:mm:ss"),
-            "message":text}
-        let command = text.match(slashRegex);;
+            "timestamp":getTime(),
+            "text":text,
+            type:"message"};
+        let command = text.match(slashRegex);
         if (command){
+            message["type"] = "command";
             if (command[1].toLowerCase() === "name"){
                 let joined = clientMap.get(client)["nameSet"];
                 let oldName = clientMap.get(client)["name"];
@@ -28,30 +30,45 @@ ws.on("connection", (client, request) => {
                 newInfo["name"] = command[2];
                 newInfo["nameSet"] = true;
                 clientMap.set(client, newInfo);
+                setting(command[2], "name", client);
                 if (!joined) {
-                    broadcast(`${clientMap.get(client)["name"]} has Joined!`);
+                    serverMessage(
+                        `${clientMap.get(client)["name"]} has Joined!`);
                 }
                 else{
-                    broadcast(`${oldName} is now ${newInfo["name"]}.`);
+                    serverMessage(`${oldName} is now ${newInfo["name"]}.`);
                 }
             }
+            //    if (command[1].toLowerCase() === "picture"){
+            //}
         }
-        else{
-            broadcast(text,client);
+        else if (clientMap.get(client)["nameSet"]){
+            broadcast(message,client);
         }
     });
 });
 
-let broadcast = (data, exlusion) => {
-    let sendingClient = clientMap.get(exlusion);
-    if (!sendingClient){
-        sendingClient = {"name":"Server"}
-    }
+let broadcast = (message, exlusion) => {
+    log(message);
     ws.clients.forEach( client => {
         let clientInfo = clientMap.get(client);
-
         if (client !== exlusion && clientInfo.nameSet){
-            client.send(`${sendingClient["name"]}: ${data}`);
+            client.send(JSON.stringify(message));
         }
     });
+};
+let serverMessage = (message, target) => {
+    let serverMessage = {name:"server",timestamp:getTime(),text:message};
+    if (target){
+        target.send(JSON.stringify(serverMessage));
+    }
+    if (!target){
+        ws.clients.forEach( client => {
+            client.send(JSON.stringify(serverMessage));
+        });
+    }
+};
+let setting = (value, key, target) => {
+    target.send(JSON.stringify({type:"setting",
+        key:key, value:value}));
 };
