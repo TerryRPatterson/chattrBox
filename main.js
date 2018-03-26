@@ -1,5 +1,5 @@
-let staticServer = require("./chatterboxStaticServer");
-let webSocketServer = require("./chatterboxwebSocket");
+let staticServer = require("./chattrboxStaticServer");
+let webSocketServer = require("./chattrboxWebSocket");
 
 staticServer();
 webSocketServer();
